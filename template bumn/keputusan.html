@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keputusan - Sistem Koordinasi UP Sengkang</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                    colors: { 
+                        pln: { dark: '#1e293b', blue: '#3b82f6', lightblue: '#eff6ff', yellow: '#fcd34d' }, 
+                        chart: { green: '#10b981', blue: '#3b82f6', red: '#ef4444', orange: '#f59e0b' } 
+                    } 
+                } 
+            } 
+        }
+    </script>
+    <style>
+        .menu-item-hover:hover {
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] flex h-screen overflow-hidden text-sm font-sans antialiased">
+
+   <!-- SIDEBAR -->
+    <aside class="w-64 bg-pln-dark text-gray-300 flex flex-col h-full shrink-0 z-10 shadow-xl">
+        <!-- Logo Area -->
+        <div class="h-20 flex items-center px-6">
+            <div class="flex items-center gap-3">
+                <!-- Gambar langsung ditampilkan penuh tanpa kotak pembungkus -->
+                <img src="logo-pln.png" alt="PLN" class="w-10 h-10 rounded-md object-cover shadow-sm">
+                
+                <div class="leading-tight">
+                    <span class="text-white text-xs font-bold">PLN NP</span><br>
+                    <span class="text-white text-xs font-bold">UP Sengkang</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Navigasi -->
+        <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto text-xs font-medium">
+            <a href="index.html" class="flex items-center gap-3 px-4 py-3 bg-pln-blue text-white rounded-lg shadow-md">
+                <i class="fas fa-home w-5 text-center text-lg"></i> Dashboard
+            </a>
+            <a href="pekerjaan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-clipboard-list w-5 text-center text-lg"></i> Pekerjaan
+            </a>
+            <a href="issue.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-exclamation-circle w-5 text-center text-lg"></i> Issue & Task
+            </a>
+            <a href="rapat.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="far fa-calendar-alt w-5 text-center text-lg"></i> Rapat Mingguan
+            </a>
+            <a href="informasi.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-info-circle w-5 text-center text-lg"></i> Informasi
+            </a>
+            <a href="keputusan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-file-signature w-5 text-center text-lg"></i> Keputusan
+            </a>
+            <a href="laporan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="far fa-file-alt w-5 text-center text-lg"></i> Laporan
+            </a>
+            <a href="#" class="flex items-center justify-between px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors mt-4">
+                <div class="flex items-center gap-3"><i class="fas fa-cog w-5 text-center text-lg"></i> Master Data</div>
+                <i class="fas fa-chevron-right text-[10px]"></i>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <div class="flex-1 overflow-auto p-8">
+            <div class="max-w-[1200px] mx-auto space-y-6">
+                
+                <!-- Topbar Section -->
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800 mb-1">Catatan Keputusan</h1>
+                        <p class="text-sm text-gray-500">Dokumentasi hasil keputusan, pertimbangan, dan tindak lanjut (Decision Log)</p>
+                    </div>
+                    
+                    <div class="flex flex-col items-end gap-3">
+                        <div class="flex items-center gap-4">
+                            <div class="relative cursor-pointer">
+                                <i class="far fa-bell text-gray-500 text-xl hover:text-gray-800"></i>
+                                <span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white border-2 border-[#f8fafc]">2</span>
+                            </div>
+                            <div class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold shadow-md cursor-pointer hover:bg-blue-600 transition">
+                                AP
+                            </div>
+                        </div>
+                        
+                        <div class="text-right mt-1">
+                            <p class="text-xs text-gray-500 mb-1">Senin, 15 September 2026</p>
+                            <div class="bg-white border border-gray-200 rounded-md px-3 py-1.5 flex items-center gap-2 cursor-pointer shadow-sm hover:border-gray-300">
+                                <span class="text-xs text-gray-700 font-medium">Minggu ke-38 (14 - 20 Sep 2026)</span>
+                                <i class="fas fa-chevron-down text-[10px] text-gray-400"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Konten Utama: Tabel Keputusan -->
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
+                    
+                    <!-- Area Filter & Tombol -->
+                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-xl gap-4">
+                        <div class="flex gap-3 flex-1">
+                            <select class="border border-gray-200 rounded-md px-3 py-2 text-xs text-gray-600 outline-none focus:border-blue-500 w-40">
+                                <option>Semua Pemutus (Level)</option>
+                                <option>MUP</option>
+                                <option>Asman</option>
+                                <option>Team Leader (TL)</option>
+                            </select>
+                            <select class="border border-gray-200 rounded-md px-3 py-2 text-xs text-gray-600 outline-none focus:border-blue-500 w-40">
+                                <option>Bulan Ini (Sep 2026)</option>
+                                <option>Bulan Lalu (Agt 2026)</option>
+                                <option>Kuartal 3</option>
+                            </select>
+                            <div class="relative flex-1 max-w-xs">
+                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+                                <input type="text" placeholder="Cari ID Issue atau Keputusan..." class="border border-gray-200 rounded-md pl-8 pr-3 py-2 text-xs text-gray-600 outline-none focus:border-blue-500 w-full">
+                            </div>
+                        </div>
+                        <button class="bg-white border border-green-500 text-green-600 hover:bg-green-50 px-4 py-2 rounded-md text-xs font-semibold shadow-sm transition flex items-center gap-2">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </button>
+                    </div>
+
+                    <!-- Tabel -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-[#f8fafc] border-b border-gray-100 text-gray-500 font-semibold">
+                                <tr>
+                                    <th class="px-6 py-4 w-12">No</th>
+                                    <th class="px-6 py-4 w-32">Tanggal Putus</th>
+                                    <th class="px-6 py-4">Terkait Issue</th>
+                                    <th class="px-6 py-4">Isi Keputusan & Pertimbangan</th>
+                                    <th class="px-6 py-4">Tindak Lanjut (Task)</th>
+                                    <th class="px-6 py-4 text-center">Pemutus (Level)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 text-gray-700 font-medium">
+                                
+                                <!-- Baris 1: Keputusan MUP -->
+                                <tr class="hover:bg-blue-50/50 transition items-start">
+                                    <td class="px-6 py-4 text-gray-500 align-top">1</td>
+                                    <td class="px-6 py-4 text-gray-800 font-bold align-top">14 Sep 2026</td>
+                                    <td class="px-6 py-4 align-top">
+                                        <a href="#" class="text-blue-600 hover:underline font-bold">ISS-2026-0012</a>
+                                        <p class="text-[10px] text-gray-500 font-normal mt-1 whitespace-normal w-48">Kapasitas cooling tower menurun drastis</p>
+                                    </td>
+                                    <td class="px-6 py-4 align-top whitespace-normal min-w-[250px]">
+                                        <div class="font-bold text-gray-800 flex items-center gap-1.5"><i class="fas fa-check-circle text-green-500"></i> Disetujui untuk overhaul minor.</div>
+                                        <div class="text-[10px] text-gray-500 mt-1.5 italic bg-gray-50 p-2 rounded border border-gray-100">
+                                            "Material tersedia di gudang pusat, pastikan jadwal eksekusi dilakukan saat weekend agar tidak mengganggu beban puncak."
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 align-top">
+                                        <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-bold border border-slate-200">
+                                            <i class="fas fa-tasks mr-1"></i> Dibuat 1 Task Baru
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-center align-top">
+                                        <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-md text-[10px] font-bold">MUP</span>
+                                    </td>
+                                </tr>
+                                
+                                <!-- Baris 2: Keputusan Asman -->
+                                <tr class="hover:bg-blue-50/50 transition">
+                                    <td class="px-6 py-4 text-gray-500 align-top">2</td>
+                                    <td class="px-6 py-4 text-gray-800 font-bold align-top">10 Sep 2026</td>
+                                    <td class="px-6 py-4 align-top">
+                                        <a href="#" class="text-blue-600 hover:underline font-bold">ISS-2026-0045</a>
+                                        <p class="text-[10px] text-gray-500 font-normal mt-1 whitespace-normal w-48">Pengadaan spare part pompa darurat</p>
+                                    </td>
+                                    <td class="px-6 py-4 align-top whitespace-normal min-w-[250px]">
+                                        <div class="font-bold text-gray-800 flex items-center gap-1.5"><i class="fas fa-exclamation-circle text-orange-500"></i> Disetujui dengan syarat pengajuan ulang.</div>
+                                        <div class="text-[10px] text-gray-500 mt-1.5 italic bg-gray-50 p-2 rounded border border-gray-100">
+                                            "Spesifikasi belum sesuai standar K3. Silakan revisi dokumen spesifikasi sebelum diteruskan ke pengadaan."
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 align-top">
+                                        <span class="text-gray-400 font-normal">-</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-center align-top">
+                                        <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-md text-[10px] font-bold">Asman Operasi</span>
+                                    </td>
+                                </tr>
+
+                                <!-- Baris 3: Keputusan TL -->
+                                <tr class="hover:bg-blue-50/50 transition">
+                                    <td class="px-6 py-4 text-gray-500 align-top">3</td>
+                                    <td class="px-6 py-4 text-gray-800 font-bold align-top">08 Sep 2026</td>
+                                    <td class="px-6 py-4 align-top">
+                                        <a href="#" class="text-blue-600 hover:underline font-bold">ISS-2026-0050</a>
+                                        <p class="text-[10px] text-gray-500 font-normal mt-1 whitespace-normal w-48">Pergantian jadwal shift mendadak grup B</p>
+                                    </td>
+                                    <td class="px-6 py-4 align-top whitespace-normal min-w-[250px]">
+                                        <div class="font-bold text-gray-800 flex items-center gap-1.5"><i class="fas fa-times-circle text-red-500"></i> Ditolak sementara.</div>
+                                        <div class="text-[10px] text-gray-500 mt-1.5 italic bg-gray-50 p-2 rounded border border-gray-100">
+                                            "Menunggu kepastian formasi anggota baru lengkap yang akan masuk di minggu depan."
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 align-top">
+                                        <span class="text-gray-400 font-normal">-</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-center align-top">
+                                        <span class="bg-slate-100 text-slate-700 px-3 py-1 rounded-md text-[10px] font-bold border border-slate-200">TL Operasi 1A</span>
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

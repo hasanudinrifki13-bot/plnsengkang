@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapat Mingguan - Sistem Koordinasi UP Sengkang</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                    colors: { 
+                        pln: { dark: '#1e293b', blue: '#3b82f6', lightblue: '#eff6ff', yellow: '#fcd34d' }, 
+                        chart: { green: '#10b981', blue: '#3b82f6', red: '#ef4444', orange: '#f59e0b' } 
+                    } 
+                } 
+            } 
+        }
+    </script>
+    <style>
+        /* Efek hover border putih khusus untuk menu sidebar */
+        .menu-item-hover:hover {
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] flex h-screen overflow-hidden text-sm font-sans antialiased">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-pln-dark text-gray-300 flex flex-col h-full shrink-0 z-10 shadow-xl">
+        <!-- Logo Area -->
+        <div class="h-20 flex items-center px-6">
+            <div class="flex items-center gap-3">
+                <!-- Gambar langsung ditampilkan penuh tanpa kotak pembungkus -->
+                <img src="logo-pln.png" alt="PLN" class="w-10 h-10 rounded-md object-cover shadow-sm">
+                
+                <div class="leading-tight">
+                    <span class="text-white text-xs font-bold">PLN NP</span><br>
+                    <span class="text-white text-xs font-bold">UP Sengkang</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Navigasi -->
+        <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto text-xs font-medium">
+            <a href="index.html" class="flex items-center gap-3 px-4 py-3 bg-pln-blue text-white rounded-lg shadow-md">
+                <i class="fas fa-home w-5 text-center text-lg"></i> Dashboard
+            </a>
+            <a href="pekerjaan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-clipboard-list w-5 text-center text-lg"></i> Pekerjaan
+            </a>
+            <a href="issue.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-exclamation-circle w-5 text-center text-lg"></i> Issue & Task
+            </a>
+            <a href="rapat.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="far fa-calendar-alt w-5 text-center text-lg"></i> Rapat Mingguan
+            </a>
+            <a href="informasi.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-info-circle w-5 text-center text-lg"></i> Informasi
+            </a>
+            <a href="keputusan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-file-signature w-5 text-center text-lg"></i> Keputusan
+            </a>
+            <a href="laporan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="far fa-file-alt w-5 text-center text-lg"></i> Laporan
+            </a>
+            <a href="#" class="flex items-center justify-between px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors mt-4">
+                <div class="flex items-center gap-3"><i class="fas fa-cog w-5 text-center text-lg"></i> Master Data</div>
+                <i class="fas fa-chevron-right text-[10px]"></i>
+            </a>
+        </nav>
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <div class="flex-1 overflow-auto p-8">
+            <div class="max-w-[1000px] mx-auto">
+                
+                <!-- Topbar & Header Section -->
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800 mb-1">Rapat Mingguan</h1>
+                        <p class="text-sm text-gray-500">Jadwal dan hasil rapat koordinasi UP Sengkang</p>
+                    </div>
+                    
+                    <!-- Icon Notifikasi & Avatar -->
+                    <div class="flex items-center gap-4 mt-2">
+                        <div class="relative cursor-pointer">
+                            <i class="far fa-bell text-gray-500 text-xl hover:text-gray-800"></i>
+                            <!-- Angka 1 sesuai mockup -->
+                            <span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white border-2 border-[#f8fafc]">1</span>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold shadow-md cursor-pointer hover:bg-blue-600 transition">
+                            AP
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs & Button Action -->
+                <div class="flex justify-between items-end border-b border-gray-200 mb-6">
+                    <div class="flex gap-6">
+                        <div class="pb-3 border-b-2 border-blue-600 text-blue-600 font-bold text-sm cursor-pointer px-2">Jadwal Rapat</div>
+                        <div class="pb-3 text-gray-500 font-medium text-sm hover:text-gray-800 cursor-pointer px-2 transition">Riwayat Rapat</div>
+                    </div>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-2 mb-2">
+                        <i class="fas fa-plus"></i> Buat Rapat
+                    </button>
+                </div>
+
+                <!-- Daftar Kartu Rapat -->
+                <div class="space-y-4">
+                    
+                    <!-- Kartu 1: Rapat TL + Staf -->
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center justify-between hover:shadow-md transition">
+                        <div class="flex items-center gap-6 w-full">
+                            <!-- Kolom Tanggal -->
+                            <div class="flex flex-col items-center justify-center w-20 border-r border-gray-100 pr-6">
+                                <span class="text-[11px] font-bold text-gray-500">SEN</span>
+                                <span class="text-3xl font-black text-gray-800 leading-none my-1">15</span>
+                                <span class="text-[10px] font-medium text-gray-500">Sep 2026</span>
+                            </div>
+                            
+                            <!-- Kolom Detail Rapat -->
+                            <div class="flex-1 pl-2">
+                                <h3 class="text-base font-bold text-gray-800 mb-2">Rapat TL + Staf</h3>
+                                <div class="space-y-1.5">
+                                    <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                        <i class="far fa-clock w-4 text-center"></i> 08:00 - 10:00
+                                    </p>
+                                    <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                        <i class="fas fa-map-marker-alt w-4 text-center"></i> Ruang Operasi
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Kolom Aksi -->
+                            <div class="flex flex-col items-end gap-3">
+                                <span class="bg-orange-50 text-orange-500 border border-orange-100 px-4 py-1.5 rounded-md text-[11px] font-bold text-center min-w-[110px]">Akan Datang</span>
+                                <a href="rapat-detail.html">
+                                <button class="border border-blue-500 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-xs font-bold text-center min-w-[110px] transition">Lihat Agenda</button>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kartu 2: Rapat Asman + TL -->
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center justify-between hover:shadow-md transition">
+                        <div class="flex items-center gap-6 w-full">
+                            <!-- Kolom Tanggal -->
+                            <div class="flex flex-col items-center justify-center w-20 border-r border-gray-100 pr-6">
+                                <span class="text-[11px] font-bold text-gray-500">SEN</span>
+                                <span class="text-3xl font-black text-gray-800 leading-none my-1">15</span>
+                                <span class="text-[10px] font-medium text-gray-500">Sep 2026</span>
+                            </div>
+                            
+                            <!-- Kolom Detail Rapat -->
+                            <div class="flex-1 pl-2">
+                                <h3 class="text-base font-bold text-gray-800 mb-2">Rapat Asman + TL</h3>
+                                <div class="space-y-1.5">
+                                    <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                        <i class="far fa-clock w-4 text-center"></i> 13:00 - 15:00
+                                    </p>
+                                    <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                        <i class="fas fa-map-marker-alt w-4 text-center"></i> Ruang Rapat Utama
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Kolom Aksi -->
+                            <div class="flex flex-col items-end gap-3">
+                                <span class="bg-orange-50 text-orange-500 border border-orange-100 px-4 py-1.5 rounded-md text-[11px] font-bold text-center min-w-[110px]">Akan Datang</span>
+                                <a href="rapat-detail.html">
+                                <button class="border border-blue-500 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-xs font-bold text-center min-w-[110px] transition">Lihat Agenda</button>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kartu 3: Rapat Tinjauan Manajemen -->
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center justify-between hover:shadow-md transition">
+                        <div class="flex items-center gap-6 w-full">
+                            <!-- Kolom Tanggal -->
+                            <div class="flex flex-col items-center justify-center w-20 border-r border-gray-100 pr-6">
+                                <span class="text-[11px] font-bold text-gray-500">SEL</span>
+                                <span class="text-3xl font-black text-gray-800 leading-none my-1">16</span>
+                                <span class="text-[10px] font-medium text-gray-500">Sep 2026</span>
+                            </div>
+                            
+                            <!-- Kolom Detail Rapat -->
+                            <div class="flex-1 pl-2">
+                                <h3 class="text-base font-bold text-gray-800 mb-2">Rapat Tinjauan Manajemen</h3>
+                                <div class="space-y-1.5">
+                                    <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                        <i class="far fa-clock w-4 text-center"></i> 08:00 - 10:00
+                                    </p>
+                                    <p class="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                        <i class="fas fa-map-marker-alt w-4 text-center"></i> Ruang Rapat Utama
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Kolom Aksi -->
+                            <div class="flex flex-col items-end gap-3">
+                                <span class="bg-orange-50 text-orange-500 border border-orange-100 px-4 py-1.5 rounded-md text-[11px] font-bold text-center min-w-[110px]">Akan Datang</span>
+                                <button class="border border-blue-500 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-md text-xs font-bold text-center min-w-[110px] transition">Lihat Agenda</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

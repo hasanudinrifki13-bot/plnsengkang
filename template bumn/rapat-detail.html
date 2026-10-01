@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Agenda Rapat - Sistem Koordinasi UP Sengkang</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                    colors: { 
+                        pln: { dark: '#1e293b', blue: '#3b82f6', lightblue: '#eff6ff', yellow: '#fcd34d' }, 
+                        chart: { green: '#10b981', blue: '#3b82f6', red: '#ef4444', orange: '#f59e0b' } 
+                    } 
+                } 
+            } 
+        }
+    </script>
+    <style>
+        .menu-item-hover:hover {
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] flex h-screen overflow-hidden text-sm font-sans antialiased">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-pln-dark text-gray-300 flex flex-col h-full shrink-0 z-10 shadow-xl">
+        <!-- Logo Area -->
+        <div class="h-20 flex items-center px-6">
+            <div class="flex items-center gap-3">
+                <!-- Gambar langsung ditampilkan penuh tanpa kotak pembungkus -->
+                <img src="logo-pln.png" alt="PLN" class="w-10 h-10 rounded-md object-cover shadow-sm">
+                
+                <div class="leading-tight">
+                    <span class="text-white text-xs font-bold">PLN NP</span><br>
+                    <span class="text-white text-xs font-bold">UP Sengkang</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Navigasi -->
+        <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto text-xs font-medium">
+            <a href="index.html" class="flex items-center gap-3 px-4 py-3 bg-pln-blue text-white rounded-lg shadow-md">
+                <i class="fas fa-home w-5 text-center text-lg"></i> Dashboard
+            </a>
+            <a href="pekerjaan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-clipboard-list w-5 text-center text-lg"></i> Pekerjaan
+            </a>
+            <a href="issue.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-exclamation-circle w-5 text-center text-lg"></i> Issue & Task
+            </a>
+            <a href="rapat.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="far fa-calendar-alt w-5 text-center text-lg"></i> Rapat Mingguan
+            </a>
+            <a href="informasi.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-info-circle w-5 text-center text-lg"></i> Informasi
+            </a>
+            <a href="keputusan.html" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="fas fa-file-signature w-5 text-center text-lg"></i> Keputusan
+            </a>
+            <a href="laporan.html class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <i class="far fa-file-alt w-5 text-center text-lg"></i> Laporan
+            </a>
+            <a href="#" class="flex items-center justify-between px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors mt-4">
+                <div class="flex items-center gap-3"><i class="fas fa-cog w-5 text-center text-lg"></i> Master Data</div>
+                <i class="fas fa-chevron-right text-[10px]"></i>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <div class="flex-1 overflow-auto p-8">
+            <div class="max-w-[1000px] mx-auto bg-white rounded-xl border border-gray-100 shadow-sm min-h-full flex flex-col">
+                
+                <!-- Header Detail Rapat -->
+                <div class="p-8 pb-0">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-4">
+                            <a href="rapat.html" class="text-gray-400 hover:text-blue-600 transition">
+                                <i class="fas fa-arrow-left text-lg"></i>
+                            </a>
+                            <h1 class="text-2xl font-bold text-gray-800">Rapat TL + Staf</h1>
+                        </div>
+                        
+                        <!-- Icon Notifikasi & Avatar -->
+                        <div class="flex items-center gap-4">
+                            <div class="relative cursor-pointer">
+                                <i class="far fa-bell text-gray-500 text-xl hover:text-gray-800"></i>
+                                <span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white border-2 border-white">1</span>
+                            </div>
+                            <div class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold shadow-md cursor-pointer hover:bg-blue-600 transition">
+                                AP
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meta Info Rapat -->
+                    <div class="flex items-center gap-6 ml-9 text-sm text-gray-500 font-medium mb-8">
+                        <div class="flex items-center gap-2">
+                            <i class="far fa-calendar-alt"></i> Senin, 15 September 2026
+                        </div>
+                        <span class="text-gray-300">|</span>
+                        <div class="flex items-center gap-2">
+                            <i class="far fa-clock"></i> 08:00 - 10:00
+                        </div>
+                        <span class="text-gray-300">|</span>
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-map-marker-alt"></i> Ruang Operasi
+                        </div>
+                        <div class="ml-auto">
+                            <span class="bg-green-100 text-green-700 px-4 py-1.5 rounded-md text-xs font-bold">Akan Datang</span>
+                        </div>
+                    </div>
+
+                    <!-- Tabs Menu -->
+                    <div class="flex gap-8 border-b border-gray-200 text-sm font-semibold">
+                        <div class="pb-3 border-b-[3px] border-blue-600 text-blue-600 cursor-pointer">Agenda</div>
+                        <div class="pb-3 text-gray-500 hover:text-gray-800 cursor-pointer transition">Peserta (8)</div>
+                        <div class="pb-3 text-gray-500 hover:text-gray-800 cursor-pointer transition">Issue (3)</div>
+                        <div class="pb-3 text-gray-500 hover:text-gray-800 cursor-pointer transition">Notulen</div>
+                        <div class="pb-3 text-gray-500 hover:text-gray-800 cursor-pointer transition">Tindak Lanjut</div>
+                    </div>
+                </div>
+
+                <!-- Konten Agenda -->
+                <div class="p-8 flex-1">
+                    <div class="space-y-6">
+                        
+                        <!-- Agenda 1 -->
+                        <div class="flex gap-5">
+                            <div class="w-9 h-9 bg-slate-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">1</div>
+                            <div class="flex-1 border-b border-gray-100 pb-6 flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800">Penyampaian informasi dari manajemen atasnya</h3>
+                                </div>
+                                <div class="text-xs text-gray-500 font-medium flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="far fa-clock"></i> 15 menit
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Agenda 2 -->
+                        <div class="flex gap-5">
+                            <div class="w-9 h-9 bg-slate-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">2</div>
+                            <div class="flex-1 border-b border-gray-100 pb-6 flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800">Evaluasi pekerjaan minggu sebelumnya (N-1)</h3>
+                                    <ul class="list-disc pl-5 mt-2 space-y-1.5 text-xs text-gray-500 font-medium">
+                                        <li>Pekerjaan yang selesai</li>
+                                        <li>Pekerjaan yang belum selesai</li>
+                                        <li>Kendala dan Issue</li>
+                                    </ul>
+                                </div>
+                                <div class="text-xs text-gray-500 font-medium flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="far fa-clock"></i> 30 menit
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Agenda 3 -->
+                        <div class="flex gap-5">
+                            <div class="w-9 h-9 bg-slate-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">3</div>
+                            <div class="flex-1 border-b border-gray-100 pb-6 flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800">Perencanaan pekerjaan minggu ini (N)</h3>
+                                    <ul class="list-disc pl-5 mt-2 space-y-1.5 text-xs text-gray-500 font-medium">
+                                        <li>Rencana pekerjaan</li>
+                                        <li>Penetapan PIC dan target waktu</li>
+                                    </ul>
+                                </div>
+                                <div class="text-xs text-gray-500 font-medium flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="far fa-clock"></i> 30 menit
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Agenda 4 -->
+                        <div class="flex gap-5">
+                            <div class="w-9 h-9 bg-slate-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">4</div>
+                            <div class="flex-1 pb-2 flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-sm font-bold text-gray-800">Pengambilan keputusan di level TL (jika ada)</h3>
+                                </div>
+                                <div class="text-xs text-gray-500 font-medium flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="far fa-clock"></i> 15 menit
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="p-8 pt-4 flex justify-end gap-4 mt-auto">
+                    <button class="border border-red-400 text-red-500 hover:bg-red-50 px-5 py-2.5 rounded-lg text-xs font-bold transition flex items-center gap-2 shadow-sm">
+                        <i class="fas fa-download"></i> Unduh Template Notulen
+                    </button>
+                    <a href="workspace-rapat.html">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg text-xs font-bold transition shadow-sm">
+                        Mulai Rapat
+                    </a>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
