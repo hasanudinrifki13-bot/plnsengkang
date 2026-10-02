@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
 
 class ProfileController extends Controller
 {
     public function edit()
     {
         $user = auth()->user()->load(['role', 'position', 'organizationUnit']);
-        return view('profile.index', compact('user'));
+        return Inertia::render('Profile/Index', [
+            'user' => $user,
+        ]);
     }
 
     public function update(Request $request)
@@ -33,11 +36,27 @@ class ProfileController extends Controller
 
         if ($request->hasFile('avatar')) {
             // Hapus file avatar lama jika ada
-            if ($user->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+            if ($user->avatar) {
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+                }
+                if (file_exists(public_path('storage/' . $user->avatar))) {
+                    @unlink(public_path('storage/' . $user->avatar));
+                }
             }
             $path = $request->file('avatar')->store('avatars', 'public');
             $data['avatar'] = $path;
+
+            // Mirror file ke public/storage untuk kompatibilitas hosting cPanel tanpa symlink
+            try {
+                $targetDir = public_path('storage/avatars');
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $path), public_path('storage/' . $path));
+            } catch (\Throwable $e) {
+                // Abaikan jika folder permission hosting membaca via route fallback
+            }
         }
 
         $user->update($data);

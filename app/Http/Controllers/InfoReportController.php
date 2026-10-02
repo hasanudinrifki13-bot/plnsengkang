@@ -9,6 +9,7 @@ use App\Models\Issue;
 use App\Models\OrganizationUnit;
 use App\Models\Task;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InfoReportController extends Controller
@@ -42,7 +43,11 @@ class InfoReportController extends Controller
         $informations = $query->latest('published_at')->paginate(12)->withQueryString();
         $units = OrganizationUnit::all();
 
-        return view('informasi.index', compact('informations', 'units', 'userRole'));
+        return Inertia::render('InfoReports/Informasi', [
+            'informations' => $informations,
+            'units' => $units,
+            'userRole' => $userRole,
+        ]);
     }
 
     public function storeInformasi(Request $request)
@@ -145,27 +150,27 @@ class InfoReportController extends Controller
         $tasks = $taskQuery->take(15)->get();
         $units = OrganizationUnit::all();
 
-        return view('laporan.index', compact(
-            'periode',
-            'totalIssues',
-            'openIssues',
-            'escalatedIssues',
-            'resolvedIssues',
-            'resolvedByTL',
-            'resolvedByAsman',
-            'resolvedByMUP',
-            'totalDecisions',
-            'tlResolutionRate',
-            'totalTasks',
-            'completedTasks',
-            'inProgressTasks',
-            'overdueTasks',
-            'taskCompletionRate',
-            'recentDecisions',
-            'recentEscalations',
-            'tasks',
-            'units'
-        ));
+        return Inertia::render('InfoReports/Laporan', [
+            'periode' => $periode,
+            'totalIssues' => $totalIssues,
+            'openIssues' => $openIssues,
+            'escalatedIssues' => $escalatedIssues,
+            'resolvedIssues' => $resolvedIssues,
+            'resolvedByTL' => $resolvedByTL,
+            'resolvedByAsman' => $resolvedByAsman,
+            'resolvedByMUP' => $resolvedByMUP,
+            'totalDecisions' => $totalDecisions,
+            'tlResolutionRate' => $tlResolutionRate,
+            'totalTasks' => $totalTasks,
+            'completedTasks' => $completedTasks,
+            'inProgressTasks' => $inProgressTasks,
+            'overdueTasks' => $overdueTasks,
+            'taskCompletionRate' => $taskCompletionRate,
+            'recentDecisions' => $recentDecisions,
+            'recentEscalations' => $recentEscalations,
+            'tasks' => $tasks,
+            'units' => $units,
+        ]);
     }
 
     public function exportCsv(Request $request)

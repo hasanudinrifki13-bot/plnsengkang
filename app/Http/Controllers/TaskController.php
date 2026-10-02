@@ -21,23 +21,30 @@ class TaskController extends Controller
 
         $query = Task::with(['assignee', 'issue', 'assigner'])->latest();
 
-        // 1. Role-based scoping (Aturan Bisnis BSD)
+        // 1. Role-based scoping (Aturan Bisnis Sengkang Alignment)
         if ($userRole === 'STAFF') {
             // Staff hanya melihat task yang di-assign ke dirinya
             $query->where('assigned_to', $user->id);
         } elseif ($userRole === 'TL') {
-            // TL melihat task milik semua staf yang berada di unit / seksinya
-            $query->where(function ($q) use ($user) {
-                if ($user->unit_id) {
-                    $q->whereHas('assignee', fn($sq) => $sq->where('unit_id', $user->unit_id))
-                      ->orWhere('assigned_to', $user->id)
-                      ->orWhere('assigned_by', $user->id);
-                } else {
-                    $q->where('assigned_to', $user->id)->orWhere('assigned_by', $user->id);
-                }
+            // TL melihat task milik semua staf yang berada di unit / seksinya (tidak bisa melihat antar TL lain)
+            $authorizedUnitIds = $user->getAuthorizedUnitIds();
+            $query->where(function ($q) use ($user, $authorizedUnitIds) {
+                $q->whereIn('unit_id', $authorizedUnitIds)
+                  ->orWhereHas('assignee', fn($sq) => $sq->whereIn('unit_id', $authorizedUnitIds))
+                  ->orWhere('assigned_to', $user->id)
+                  ->orWhere('assigned_by', $user->id);
+            });
+        } elseif ($userRole === 'ASMAN') {
+            // Asman melihat task milik seluruh unit/seksi di bawah bidangnya (tidak bisa melihat antar Asman lain)
+            $authorizedUnitIds = $user->getAuthorizedUnitIds();
+            $query->where(function ($q) use ($user, $authorizedUnitIds) {
+                $q->whereIn('unit_id', $authorizedUnitIds)
+                  ->orWhereHas('assignee', fn($sq) => $sq->whereIn('unit_id', $authorizedUnitIds))
+                  ->orWhere('assigned_to', $user->id)
+                  ->orWhere('assigned_by', $user->id);
             });
         }
-        // Catatan: Role ASMAN & MUP dapat melihat seluruh task unit secara komprehensif
+        // Catatan: Role MUP & ADMIN dapat melihat seluruh task unit secara komprehensif
 
         // 2. Filter Status
         if ($request->filled('status')) {
@@ -73,21 +80,52 @@ class TaskController extends Controller
 
         $tasks = $query->paginate(15)->withQueryString();
 
-        // Data Karyawan untuk penugasan PIC (utamakan Staff)
-        $staffUsers = User::whereHas('role', fn($q) => $q->where('name', 'STAFF'))
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
-        if ($staffUsers->isEmpty()) {
-            $staffUsers = User::where('is_active', true)->orderBy('name')->get();
+        // Data Karyawan untuk penugasan PIC (hanya bawahan langsung / unit kerja sendiri untuk menjaga integritas data)
+        $subordinateIds = $user->getSubordinateUserIds();
+        if (in_array($userRole, ['MUP', 'ADMIN'])) {
+            $usersQuery = User::where('is_active', true);
+        } else {
+            $usersQuery = User::whereIn('id', $subordinateIds)->where('is_active', true);
         }
 
-        $users = User::where('is_active', true)->orderBy('name')->get();
+        $users = (clone $usersQuery)->orderBy('name')->get();
+        if ($users->isEmpty()) {
+            $users = User::where('id', $user->id)->get();
+        }
 
-        // Data Isu Aktif untuk opsi keterkaitan issue_id
-        $issues = Issue::whereNotIn('status', ['Resolved', 'Closed'])->latest()->get();
+        $staffUsers = (clone $usersQuery)->whereHas('role', fn($q) => $q->where('name', 'STAFF'))->orderBy('name')->get();
+        if ($staffUsers->isEmpty()) {
+            $staffUsers = $users;
+        }
 
-        return view('pekerjaan.index', compact('tasks', 'users', 'staffUsers', 'issues', 'currentWeek'));
+        // Data Isu Aktif terfilter sesuai unit otoritas & jenjang eskalasi
+        $authorizedUnitIds = $user->getAuthorizedUnitIds();
+        $issuesQuery = Issue::whereNotIn('status', ['Resolved', 'Closed'])->latest();
+        if ($userRole === 'STAFF') {
+            $issuesQuery->where('reported_by', $user->id);
+        } elseif ($userRole === 'TL') {
+            // TL: isu milik staf seksinya (level TL)
+            $issuesQuery->whereIn('unit_id', $authorizedUnitIds);
+        } elseif ($userRole === 'ASMAN') {
+            // ASMAN: hanya isu yang dibawa oleh TL ke level ASMAN
+            $subordinateIds = $user->getSubordinateUserIds();
+            $issuesQuery->whereIn('unit_id', $authorizedUnitIds)
+                ->where(function ($q) use ($user, $subordinateIds) {
+                    $q->whereIn('current_level', ['ASMAN', 'MUP'])
+                      ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'ASMAN'))
+                      ->orWhere('reported_by', $user->id);
+                });
+        } elseif ($userRole === 'MUP') {
+            // MUP: hanya isu yang dibawa oleh Asman ke level MUP
+            $issuesQuery->where(function ($q) use ($user) {
+                $q->where('current_level', 'MUP')
+                  ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'MUP'))
+                  ->orWhere('reported_by', $user->id);
+            });
+        }
+        $issues = $issuesQuery->get();
+
+        return \Inertia\Inertia::render('Tasks/Index', compact('tasks', 'users', 'staffUsers', 'issues', 'currentWeek'));
     }
 
     /**
@@ -118,13 +156,24 @@ class TaskController extends Controller
         $attachmentPath = null;
         if ($request->hasFile('completion_attachment')) {
             $attachmentPath = $request->file('completion_attachment')->store('tasks/proofs', 'public');
+            try {
+                $targetDir = public_path('storage/tasks/proofs');
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $attachmentPath), public_path('storage/' . $attachmentPath));
+            } catch (\Throwable $e) {}
         }
+
+        $assignee = User::find($validated['assigned_to']);
+        $unitId = $assignee?->unit_id ?? auth()->user()->unit_id;
 
         $task = Task::create([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'assigned_to' => $validated['assigned_to'],
             'assigned_by' => auth()->id(),
+            'unit_id' => $unitId,
             'issue_id' => $validated['issue_id'] ?? null,
             'start_date' => $validated['start_date'] ?? now()->toDateString(),
             'due_date' => $dueDate,
@@ -167,10 +216,23 @@ class TaskController extends Controller
         ];
 
         if ($request->hasFile('completion_attachment')) {
-            if ($task->completion_attachment && Storage::disk('public')->exists($task->completion_attachment)) {
-                Storage::disk('public')->delete($task->completion_attachment);
+            if ($task->completion_attachment) {
+                if (Storage::disk('public')->exists($task->completion_attachment)) {
+                    Storage::disk('public')->delete($task->completion_attachment);
+                }
+                if (file_exists(public_path('storage/' . $task->completion_attachment))) {
+                    @unlink(public_path('storage/' . $task->completion_attachment));
+                }
             }
-            $updateData['completion_attachment'] = $request->file('completion_attachment')->store('tasks/proofs', 'public');
+            $attachmentPath = $request->file('completion_attachment')->store('tasks/proofs', 'public');
+            $updateData['completion_attachment'] = $attachmentPath;
+            try {
+                $targetDir = public_path('storage/tasks/proofs');
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $attachmentPath), public_path('storage/' . $attachmentPath));
+            } catch (\Throwable $e) {}
         }
 
         if ($request->filled('completion_notes')) {
@@ -208,9 +270,12 @@ class TaskController extends Controller
             $status = 'Selesai';
         }
 
+        $assignee = User::find($validated['assigned_to']);
+
         $updateData = [
             'title' => $validated['title'],
             'assigned_to' => $validated['assigned_to'],
+            'unit_id' => $assignee?->unit_id ?? $task->unit_id,
             'start_date' => $validated['start_date'] ?? $task->start_date,
             'due_date' => $validated['due_date'],
             'progress_percent' => $validated['progress_percent'],
@@ -220,10 +285,23 @@ class TaskController extends Controller
         ];
 
         if ($request->hasFile('completion_attachment')) {
-            if ($task->completion_attachment && Storage::disk('public')->exists($task->completion_attachment)) {
-                Storage::disk('public')->delete($task->completion_attachment);
+            if ($task->completion_attachment) {
+                if (Storage::disk('public')->exists($task->completion_attachment)) {
+                    Storage::disk('public')->delete($task->completion_attachment);
+                }
+                if (file_exists(public_path('storage/' . $task->completion_attachment))) {
+                    @unlink(public_path('storage/' . $task->completion_attachment));
+                }
             }
-            $updateData['completion_attachment'] = $request->file('completion_attachment')->store('tasks/proofs', 'public');
+            $attachmentPath = $request->file('completion_attachment')->store('tasks/proofs', 'public');
+            $updateData['completion_attachment'] = $attachmentPath;
+            try {
+                $targetDir = public_path('storage/tasks/proofs');
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $attachmentPath), public_path('storage/' . $attachmentPath));
+            } catch (\Throwable $e) {}
         }
 
         if ($request->filled('completion_notes')) {

@@ -12,8 +12,12 @@ return new class extends Migration
     public function up()
 {
     Schema::table('tasks', function (Blueprint $table) {
-        $table->string('completion_attachment')->nullable()->after('status');
-        $table->text('completion_notes')->nullable()->after('completion_attachment');
+        if (!Schema::hasColumn('tasks', 'completion_attachment')) {
+            $table->string('completion_attachment')->nullable()->after('status');
+        }
+        if (!Schema::hasColumn('tasks', 'completion_notes')) {
+            $table->text('completion_notes')->nullable()->after('status');
+        }
     });
 }
 

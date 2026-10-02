@@ -5,14 +5,34 @@ namespace App\Http\Controllers;
 use App\Models\Decision;
 use App\Models\Issue;
 use App\Models\Task;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class DecisionController extends Controller
 {
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $userRole = strtoupper(optional($user->role)->name ?? 'STAFF');
+
         $query = Decision::with(['issue', 'decisionMaker', 'tasks.assignee'])->latest();
+
+        // 1. Scoping berdasar wewenang & isolasi data unit
+        if ($userRole === 'STAFF') {
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('issue', fn($iq) => $iq->where('reported_by', $user->id))
+                  ->orWhereHas('tasks', fn($tq) => $tq->where('assigned_to', $user->id));
+            });
+        } elseif ($userRole === 'TL' || $userRole === 'ASMAN') {
+            $authorizedUnitIds = $user->getAuthorizedUnitIds();
+            $query->where(function ($q) use ($user, $authorizedUnitIds) {
+                $q->whereHas('issue', fn($iq) => $iq->whereIn('unit_id', $authorizedUnitIds))
+                  ->orWhere('decision_by', $user->id)
+                  ->orWhereHas('tasks', fn($tq) => $tq->whereIn('unit_id', $authorizedUnitIds));
+            });
+        }
 
         if ($request->filled('level') && $request->level !== 'Semua') {
             $query->where('decision_level', $request->level);
@@ -33,7 +53,9 @@ class DecisionController extends Controller
 
         $decisions = $query->paginate(15)->withQueryString();
 
-        return view('keputusan.index', compact('decisions'));
+        return Inertia::render('Decisions/Index', [
+            'decisions' => $decisions,
+        ]);
     }
 
     public function store(Request $request, $issue_id)
@@ -76,6 +98,8 @@ class DecisionController extends Controller
             $taskTitle = $request->task_title ?: ('Tindak Lanjut: ' . Str::limit($request->decision, 60));
             $dueDate = $request->task_due_date ?: now()->addDays(3)->toDateString();
             $assigneeId = $request->task_assignee_id ?: auth()->id();
+            $assignee = User::find($assigneeId);
+            $taskUnitId = $assignee?->unit_id ?? $issue->unit_id ?? auth()->user()->unit_id;
 
             $task = Task::create([
                 'issue_id' => $issue->id,
@@ -84,6 +108,7 @@ class DecisionController extends Controller
                 'description' => $request->follow_up ?: $request->decision,
                 'assigned_to' => $assigneeId,
                 'assigned_by' => auth()->id(),
+                'unit_id' => $taskUnitId,
                 'start_date' => now()->toDateString(),
                 'due_date' => $dueDate,
                 'progress_percent' => 0,

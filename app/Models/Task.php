@@ -57,6 +57,11 @@ class Task extends Model
         return $this->belongsTo(Decision::class);
     }
 
+    public function organizationUnit(): BelongsTo
+    {
+        return $this->belongsTo(OrganizationUnit::class, 'unit_id');
+    }
+
     public function getCompletionAttachmentUrlAttribute(): ?string
     {
         if ($this->completion_attachment && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->completion_attachment)) {

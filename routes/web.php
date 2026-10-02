@@ -44,6 +44,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/issues/create', [IssueController::class, 'create'])->name('issues.create');
     Route::post('/issues', [IssueController::class, 'store'])->name('issues.store');
     Route::get('/issues/{issue}', [IssueController::class, 'show'])->name('issues.show');
+    Route::put('/issues/{id}', [IssueController::class, 'update'])->name('issues.update');
+    Route::delete('/issues/{id}', [IssueController::class, 'destroy'])->name('issues.destroy');
     Route::post('/issues/{id}/discussions', [IssueController::class, 'storeDiscussion'])->name('issues.discussions.store');
     
     // Aksi Eskalasi Berjenjang (TL & ASMAN) - Mendukung POST & PUT/PATCH
@@ -55,6 +57,8 @@ Route::middleware(['auth'])->group(function () {
     Route::match(['POST', 'PUT', 'PATCH'], '/issues/{id}/decisions', [DecisionController::class, 'store'])
         ->middleware('role:TL,ASMAN,MUP')
         ->name('decisions.store');
+    Route::match(['POST', 'PUT', 'PATCH'], '/decisions/{id}', [DecisionController::class, 'store'])
+        ->middleware('role:TL,ASMAN,MUP');
 
     // 4. Modul Rapat Mingguan & Workspace (Panel 3, 4, 9 Mockup)
     Route::get('/rapat', [MeetingController::class, 'index'])->name('rapat.index');
@@ -81,8 +85,8 @@ Route::middleware(['auth'])->group(function () {
 
     // 8. Manajemen Profil & Keamanan Akun
     Route::get('/profil', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::put('/profil', [ProfileController::class, 'update'])->name('profile.update');
-    Route::put('/profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    Route::match(['POST', 'PUT'], '/profil', [ProfileController::class, 'update'])->name('profile.update');
+    Route::match(['POST', 'PUT'], '/profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 
     // 9. Modul Master Data (Dibatasi Khusus MUP & ADMIN)
     Route::middleware(['role:MUP,ADMIN'])->group(function () {
@@ -95,5 +99,37 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/master-data/hierarchies', [MasterDataController::class, 'storeHierarchy'])->name('master.hierarchies.store');
         Route::put('/master-data/hierarchies/{id}', [MasterDataController::class, 'updateHierarchy'])->name('master.hierarchies.update');
         Route::delete('/master-data/hierarchies/{id}', [MasterDataController::class, 'destroyHierarchy'])->name('master.hierarchies.destroy');
+
+        // Helper trigger storage:link khusus cPanel / Shared Hosting
+        Route::get('/artisan-storage-link', function () {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('storage:link');
+                return back()->with('success', 'Storage link berhasil dibuat/diperbarui: ' . \Illuminate\Support\Facades\Artisan::output());
+            } catch (\Throwable $e) {
+                return back()->with('info', 'Catatan hosting: Route fallback storage aktif otomatis menangani file gambar walaupun symlink hosting dibatasi.');
+            }
+        })->name('storage.link');
     });
 });
+
+/**
+ * 10. Fallback File Serving untuk Shared Hosting / cPanel.
+ * Jika web server hosting tidak memiliki symlink / symlink dinonaktifkan,
+ * route ini akan otomatis melayani file dari storage/app/public/ atau public/storage/.
+ */
+Route::get('/storage/{path}', function ($path) {
+    // 1. Cek di storage/app/public/
+    $filePath = storage_path('app/public/' . $path);
+    if (file_exists($filePath)) {
+        return response()->file($filePath);
+    }
+
+    // 2. Cek di public/storage/
+    $publicPath = public_path('storage/' . $path);
+    if (file_exists($publicPath)) {
+        return response()->file($publicPath);
+    }
+
+    abort(404);
+})->where('path', '.*')->name('storage.fallback');
+

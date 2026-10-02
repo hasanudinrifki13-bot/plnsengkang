@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
 
 class MasterDataController extends Controller
 {
@@ -35,6 +36,33 @@ class MasterDataController extends Controller
             $query->where('unit_id', $request->unit_id);
         }
 
+        if ($request->filled('tl_id')) {
+            $tlId = $request->tl_id;
+            $tlUser = User::find($tlId);
+            $query->where(function ($q) use ($tlId, $tlUser) {
+                $q->where('tl_id', $tlId);
+                if ($tlUser && $tlUser->unit_id) {
+                    $q->orWhere(function ($sq) use ($tlUser) {
+                        $sq->whereNull('tl_id')->where('unit_id', $tlUser->unit_id);
+                    });
+                }
+            });
+        }
+
+        if ($request->filled('asman_id')) {
+            $asmanId = $request->asman_id;
+            $asmanUser = User::find($asmanId);
+            $query->where(function ($q) use ($asmanId, $asmanUser) {
+                $q->where('asman_id', $asmanId);
+                if ($asmanUser && $asmanUser->unit_id) {
+                    $childUnitIds = OrganizationUnit::where('parent_unit_id', $asmanUser->unit_id)->orWhere('id', $asmanUser->unit_id)->pluck('id')->toArray();
+                    $q->orWhere(function ($sq) use ($childUnitIds) {
+                        $sq->whereNull('asman_id')->whereIn('unit_id', $childUnitIds);
+                    });
+                }
+            });
+        }
+
         // Pastikan link paginasi selalu menyertakan tab=users agar saat ganti halaman tidak reset ke tab awal
         $queryParams = $request->query();
         $queryParams['tab'] = 'users';
@@ -45,7 +73,39 @@ class MasterDataController extends Controller
         $units = OrganizationUnit::all();
         $hierarchies = OrganizationHierarchy::orderBy('sort_order')->get();
 
-        return view('master.index', compact('users', 'roles', 'positions', 'units', 'hierarchies', 'activeTab'));
+        // Kumpulan semua data user lengkap untuk pemetaan foto di Struktur Organisasi (Organogram) & Relasi Incumbent
+        $organogramUsers = User::select('id', 'name', 'employee_no', 'avatar', 'role_id', 'position_id')
+            ->whereNotNull('employee_no')
+            ->get()
+            ->keyBy(fn($u) => trim($u->employee_no));
+
+        $usersByName = User::select('id', 'name', 'employee_no', 'avatar', 'role_id', 'position_id')
+            ->get()
+            ->keyBy(fn($u) => strtoupper(trim($u->name)));
+
+        // Daftar seluruh Team Leader dan Asisten Manajer untuk dropdown penugasan hierarki
+        $tls = User::with(['position', 'organizationUnit'])
+            ->whereHas('role', fn($q) => $q->where('name', 'TL'))
+            ->orderBy('name')
+            ->get();
+
+        $asmans = User::with(['position', 'organizationUnit'])
+            ->whereHas('role', fn($q) => $q->where('name', 'ASMAN'))
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Master/Index', [
+            'users' => $users,
+            'roles' => $roles,
+            'positions' => $positions,
+            'units' => $units,
+            'hierarchies' => $hierarchies,
+            'tls' => $tls,
+            'asmans' => $asmans,
+            'organogramUsers' => $organogramUsers,
+            'usersByName' => $usersByName,
+            'activeTab' => $activeTab,
+        ]);
     }
 
     public function storeUser(Request $request)
@@ -58,7 +118,22 @@ class MasterDataController extends Controller
             'role_id' => 'required|exists:roles,id',
             'position_id' => 'nullable|exists:positions,id',
             'unit_id' => 'nullable|exists:organization_units,id',
+            'tl_id' => 'nullable|exists:users,id',
+            'asman_id' => 'nullable|exists:users,id',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
+
+        $avatarPath = null;
+        if ($request->hasFile('avatar')) {
+            $avatarPath = $request->file('avatar')->store('avatars', 'public');
+            try {
+                $targetDir = public_path('storage/avatars');
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $avatarPath), public_path('storage/' . $avatarPath));
+            } catch (\Throwable $e) {}
+        }
 
         User::create([
             'name' => $validated['name'],
@@ -68,6 +143,9 @@ class MasterDataController extends Controller
             'role_id' => $validated['role_id'],
             'position_id' => $validated['position_id'] ?? null,
             'unit_id' => $validated['unit_id'] ?? null,
+            'tl_id' => $validated['tl_id'] ?? null,
+            'asman_id' => $validated['asman_id'] ?? null,
+            'avatar' => $avatarPath,
             'is_active' => true,
         ]);
 
@@ -89,8 +167,11 @@ class MasterDataController extends Controller
             'role_id' => 'required|exists:roles,id',
             'position_id' => 'nullable|exists:positions,id',
             'unit_id' => 'nullable|exists:organization_units,id',
+            'tl_id' => 'nullable|exists:users,id',
+            'asman_id' => 'nullable|exists:users,id',
             'is_active' => 'required|boolean',
             'password' => 'nullable|string|min:6',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         $dataToUpdate = [
@@ -100,11 +181,33 @@ class MasterDataController extends Controller
             'role_id' => $validated['role_id'],
             'position_id' => $validated['position_id'] ?? null,
             'unit_id' => $validated['unit_id'] ?? null,
+            'tl_id' => $validated['tl_id'] ?? null,
+            'asman_id' => $validated['asman_id'] ?? null,
             'is_active' => $validated['is_active'],
         ];
 
         if (!empty($validated['password'])) {
             $dataToUpdate['password'] = Hash::make($validated['password']);
+        }
+
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar) {
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($user->avatar)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+                }
+                if (file_exists(public_path('storage/' . $user->avatar))) {
+                    @unlink(public_path('storage/' . $user->avatar));
+                }
+            }
+            $avatarPath = $request->file('avatar')->store('avatars', 'public');
+            $dataToUpdate['avatar'] = $avatarPath;
+            try {
+                $targetDir = public_path('storage/avatars');
+                if (!is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                @copy(storage_path('app/public/' . $avatarPath), public_path('storage/' . $avatarPath));
+            } catch (\Throwable $e) {}
         }
 
         $user->update($dataToUpdate);

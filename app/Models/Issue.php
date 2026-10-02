@@ -14,7 +14,73 @@ class Issue extends Model
 
     protected $guarded = [];
 
-    protected $appends = ['sla_info'];
+    protected $appends = ['sla_info', 'attachment_url', 'attachment_name', 'is_image_attachment', 'clean_description', 'hierarchy_line'];
+
+    /**
+     * Jalur hierarki pelaporan untuk isu ini: Staff Pelapor -> TL -> ASMAN -> MUP
+     */
+    public function getHierarchyLineAttribute(): array
+    {
+        return $this->reporter?->hierarchy_info ?? [];
+    }
+
+    /**
+     * Accessor URL file lampiran
+     */
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        $file = $this->attachment;
+        if (!$file && preg_match('/\[Lampiran:\s*([^\]]+)\]/i', $this->description, $matches)) {
+            $file = trim($matches[1]);
+        }
+
+        if (!$file) {
+            return null;
+        }
+
+        if (str_starts_with($file, 'http://') || str_starts_with($file, 'https://')) {
+            return $file;
+        }
+
+        if (file_exists(public_path('uploads/issues/' . $file))) {
+            return asset('uploads/issues/' . $file);
+        }
+
+        if (file_exists(public_path('storage/' . $file))) {
+            return asset('storage/' . $file);
+        }
+
+        return asset('uploads/issues/' . $file);
+    }
+
+    /**
+     * Accessor nama file lampiran
+     */
+    public function getAttachmentNameAttribute(): ?string
+    {
+        $file = $this->attachment;
+        if (!$file && preg_match('/\[Lampiran:\s*([^\]]+)\]/i', $this->description, $matches)) {
+            $file = trim($matches[1]);
+        }
+        return $file;
+    }
+
+    /**
+     * Cek apakah lampiran berupa file gambar
+     */
+    public function getIsImageAttachmentAttribute(): bool
+    {
+        $name = strtolower($this->attachment_name ?: '');
+        return (bool) preg_match('/\.(jpg|jpeg|png|gif|webp|svg)$/i', $name);
+    }
+
+    /**
+     * Deskripsi bersih tanpa tag lampiran sistem
+     */
+    public function getCleanDescriptionAttribute(): string
+    {
+        return trim(preg_replace('/\[Lampiran:\s*([^\]]+)\]/i', '', $this->description ?? ''));
+    }
 
     /**
      * Accessor untuk menghitung durasi batas penanganan (SLA) berdasarkan level eskalasi (TL: 24h, Asman: 48h, MUP: 72h).
@@ -125,5 +191,10 @@ class Issue extends Model
     public function meetings()
     {
         return $this->belongsToMany(Meeting::class, 'meeting_issues')->withPivot(['status', 'notes'])->withTimestamps();
+    }
+
+    public function organizationUnit(): BelongsTo
+    {
+        return $this->belongsTo(OrganizationUnit::class, 'unit_id');
     }
 }

@@ -25,10 +25,10 @@ class RoleMiddleware
 
         $allowedRoles = array_map('strtoupper', $roles);
 
-        if (!in_array($userRole, $allowedRoles, true)) {
-            abort(403, 'Akses Ditolak: Anda tidak memiliki wewenang untuk mengakses halaman ini.');
+        if ($userRole === 'ADMIN' || in_array($userRole, $allowedRoles, true)) {
+            return $next($request);
         }
 
-        return $next($request);
+        abort(403, 'Akses Ditolak: Anda tidak memiliki wewenang untuk mengakses halaman ini.');
     }
 }

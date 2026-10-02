@@ -13,13 +13,49 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $roleName = strtoupper(optional($user->role)->name ?? 'TL');
+        $roleName = strtoupper(optional($user->role)->name ?? 'STAFF');
+        $authorizedUnitIds = $user->getAuthorizedUnitIds();
         $currentWeek = now()->isoWeek();
         $siklus = $request->get('siklus', 'semua');
 
         // Filter siklus mingguan (BR-09 ISO-8601)
         $taskQuery = Task::query();
         $issueQuery = Issue::query();
+
+        // 1. Role-based scoping (Isolasi Unit / Seksi)
+        if ($roleName === 'STAFF') {
+            $taskQuery->where('assigned_to', $user->id);
+            $issueQuery->where('reported_by', $user->id);
+        } elseif ($roleName === 'TL') {
+            $taskQuery->where(function ($q) use ($authorizedUnitIds, $user) {
+                $q->whereIn('unit_id', $authorizedUnitIds)
+                  ->orWhere('assigned_to', $user->id);
+            });
+            $issueQuery->whereIn('unit_id', $authorizedUnitIds);
+        } elseif ($roleName === 'ASMAN') {
+            $taskQuery->whereIn('unit_id', $authorizedUnitIds);
+            // Asman HANYA melihat apa yang DIBAWA oleh TL-nya (sudah dieskalasikan ke ASMAN/MUP atau dilaporkan oleh TL/Asman)
+            $subordinateIds = $user->getSubordinateUserIds();
+            $issueQuery->whereIn('unit_id', $authorizedUnitIds)
+                ->where(function ($q) use ($user, $subordinateIds) {
+                    $q->whereIn('current_level', ['ASMAN', 'MUP'])
+                      ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'ASMAN'))
+                      ->orWhere('reported_by', $user->id)
+                      ->orWhere(function ($sq) use ($subordinateIds) {
+                          $sq->whereIn('reported_by', $subordinateIds)
+                             ->whereHas('reporter.role', fn($rq) => $rq->where('name', 'TL'));
+                      });
+                });
+        } elseif ($roleName === 'MUP') {
+            // MUP HANYA melihat apa yang DIBAWA oleh ASMAN-nya (sudah dieskalasikan ke MUP atau dilaporkan oleh Asman/MUP)
+            $issueQuery->where(function ($q) use ($user) {
+                $q->where('current_level', 'MUP')
+                  ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'MUP'))
+                  ->orWhere('reported_by', $user->id)
+                  ->orWhereHas('reporter.role', fn($rq) => $rq->whereIn('name', ['ASMAN', 'MUP']));
+            });
+        }
+        // Role ADMIN melihat seluruh data UP Sengkang
 
         if ($siklus === 'N') {
             $taskQuery->where(function ($q) use ($currentWeek) {
@@ -58,13 +94,15 @@ class DashboardController extends Controller
         // Scope berdasarkan hak akses role user yang login
         if ($roleName === 'STAFF') {
             $cumulativeOverdueQuery->where('assigned_to', $user->id);
-        } elseif ($roleName === 'TL' && $user->unit_id) {
-            $cumulativeOverdueQuery->where(function ($q) use ($user) {
-                $q->whereHas('assignee', fn($sq) => $sq->where('unit_id', $user->unit_id))
+        } elseif ($roleName === 'TL') {
+            $cumulativeOverdueQuery->where(function ($q) use ($authorizedUnitIds, $user) {
+                $q->whereIn('unit_id', $authorizedUnitIds)
                   ->orWhere('assigned_to', $user->id);
             });
+        } elseif ($roleName === 'ASMAN') {
+            $cumulativeOverdueQuery->whereIn('unit_id', $authorizedUnitIds);
         }
-        // ASMAN & MUP melihat tunggakan seluruh unit
+        // MUP melihat tunggakan seluruh unit
 
         $overdueTasks = (clone $cumulativeOverdueQuery)->count();
 
@@ -102,12 +140,39 @@ class DashboardController extends Controller
             ]
         ];
 
-        // ==================== DATA MONITORING MANAJEMEN TUGAS (PERSIS GAMBAR 2) ====================
+        // ==================== DATA MONITORING MANAJEMEN TUGAS ====================
         $totalPembahasan = (clone $issueQuery)->count() + (clone $taskQuery)->count();
         $totalOpen = (clone $taskQuery)->where('status', 'Open')->count() + (clone $issueQuery)->where('status', 'Open')->count();
         $totalOnProgressTasks = (clone $taskQuery)->whereIn('status', ['In Progress', 'On Progress'])->count();
         $totalClosedTasks = (clone $taskQuery)->whereIn('status', ['Resolved', 'Closed', 'Selesai'])->count();
         $totalOverdue = $overdueTasks;
+
+        // Scoped monitoring queries
+        $scopedMonitoringPic = Task::with('assignee')->whereNotIn('status', ['Selesai', 'Closed', 'Resolved']);
+        $scopedPrioritasAlert = Issue::with(['owner', 'reporter', 'decisions', 'tasks']);
+
+        if ($roleName === 'STAFF') {
+            $scopedMonitoringPic->where('assigned_to', $user->id);
+            $scopedPrioritasAlert->where('reported_by', $user->id);
+        } elseif ($roleName === 'TL') {
+            $scopedMonitoringPic->where(fn($q) => $q->whereIn('unit_id', $authorizedUnitIds)->orWhere('assigned_to', $user->id));
+            $scopedPrioritasAlert->whereIn('unit_id', $authorizedUnitIds);
+        } elseif ($roleName === 'ASMAN') {
+            $scopedMonitoringPic->whereIn('unit_id', $authorizedUnitIds);
+            $subordinateIds = $user->getSubordinateUserIds();
+            $scopedPrioritasAlert->whereIn('unit_id', $authorizedUnitIds)
+                ->where(function ($q) use ($user, $subordinateIds) {
+                    $q->whereIn('current_level', ['ASMAN', 'MUP'])
+                      ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'ASMAN'))
+                      ->orWhere('reported_by', $user->id);
+                });
+        } elseif ($roleName === 'MUP') {
+            $scopedPrioritasAlert->where(function ($q) use ($user) {
+                $q->where('current_level', 'MUP')
+                  ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'MUP'))
+                  ->orWhere('reported_by', $user->id);
+            });
+        }
 
         $manajemenTugas = [
             'siklus_aktif' => $siklus,
@@ -134,49 +199,70 @@ class DashboardController extends Controller
                 'on_track' => (clone $taskQuery)->whereNotIn('status', ['Selesai', 'Closed', 'Resolved'])->where('due_date', '>', $threeDaysLater)->count(),
                 'closed' => $totalClosedTasks,
             ],
-            'monitoring_pic' => Task::with('assignee')->whereNotIn('status', ['Selesai', 'Closed', 'Resolved'])->latest()->take(6)->get(),
-            'prioritas_alert' => Issue::with(['owner', 'reporter', 'decisions', 'tasks'])->latest()->take(8)->get(),
+            'monitoring_pic' => $scopedMonitoringPic->latest()->take(6)->get(),
+            'prioritas_alert' => $scopedPrioritasAlert->latest()->take(8)->get(),
         ];
 
-        // Isu yang berada di level TL
-        $issuesUnderReview = Issue::where('current_level', 'TL')
-            ->with(['reporter', 'owner'])
-            ->latest()
-            ->take(10)
-            ->get();
-
-        // Pekerjaan Tim
-        $tasks = Task::with(['assignee', 'issue'])
-            ->latest()
-            ->take(10)
-            ->get();
-
-        switch ($roleName) {
-            case 'STAFF':
-                $myTasks = Task::with('issue')->where('assigned_to', $user->id)->get();
-                $openCount = $myTasks->where('status', 'Open')->count();
-                $inProgressCount = $myTasks->whereIn('status', ['In Progress', 'On Progress'])->count();
-                $overdueCount = $myTasks->filter(fn($t) => $t->calculated_status === 'Terlambat')->count();
-                $completedCount = $myTasks->filter(fn($t) => $t->calculated_status === 'Selesai')->count();
-                $closedCount = $completedCount;
-                return view('dashboard.staff', compact('kpiData', 'manajemenTugas', 'myTasks', 'tasks', 'openCount', 'inProgressCount', 'overdueCount', 'completedCount', 'closedCount'));
-
-            case 'TL':
-                return view('dashboard.tl', compact('kpiData', 'manajemenTugas', 'issuesUnderReview', 'tasks'));
-
-            case 'ASMAN':
-                $escalatedIssues = Issue::where('current_level', 'ASMAN')->with(['reporter', 'escalations.fromUser'])->latest()->get();
-                $pendingCount = $escalatedIssues->count();
-                return view('dashboard.asman', compact('kpiData', 'manajemenTugas', 'escalatedIssues', 'pendingCount', 'tasks'));
-
-            case 'MUP':
-                $criticalIssues = Issue::where('priority', 'CRITICAL')->orWhere('current_level', 'MUP')->with(['reporter', 'owner'])->latest()->get();
-                $totalIssues = Issue::count();
-                $resolvedIssues = Issue::whereIn('status', ['Resolved', 'Closed'])->count();
-                return view('dashboard.mup', compact('kpiData', 'manajemenTugas', 'criticalIssues', 'totalIssues', 'resolvedIssues', 'tasks'));
-
-            default:
-                return view('dashboard.tl', compact('kpiData', 'manajemenTugas', 'issuesUnderReview', 'tasks'));
+        // Isu yang berada di level review sesuai jenjang wewenang & alur eskalasi
+        $issuesUnderReviewQuery = Issue::with(['reporter', 'owner', 'organizationUnit'])->latest();
+        if ($roleName === 'STAFF') {
+            $issuesUnderReviewQuery->where('reported_by', $user->id);
+        } elseif ($roleName === 'TL') {
+            $issuesUnderReviewQuery->whereIn('unit_id', $authorizedUnitIds)->where('current_level', 'TL');
+        } elseif ($roleName === 'ASMAN') {
+            $issuesUnderReviewQuery->whereIn('unit_id', $authorizedUnitIds)->where('current_level', 'ASMAN');
+        } elseif ($roleName === 'MUP') {
+            $issuesUnderReviewQuery->where('current_level', 'MUP');
+        } else {
+            $issuesUnderReviewQuery->whereIn('current_level', ['TL', 'ASMAN', 'MUP']);
         }
+        $issuesUnderReview = $issuesUnderReviewQuery->take(10)->get();
+
+        // Pekerjaan Tim Terkini (Scoped)
+        $tasksScopedQuery = Task::with(['assignee', 'issue'])->latest();
+        if ($roleName === 'STAFF') {
+            $tasksScopedQuery->where('assigned_to', $user->id);
+        } elseif ($roleName === 'TL') {
+            $tasksScopedQuery->where(fn($q) => $q->whereIn('unit_id', $authorizedUnitIds)->orWhere('assigned_to', $user->id));
+        } elseif ($roleName === 'ASMAN') {
+            $tasksScopedQuery->whereIn('unit_id', $authorizedUnitIds);
+        }
+        $tasks = $tasksScopedQuery->take(10)->get();
+
+        $myTasks = null;
+        $myTaskStats = null;
+        $escalatedIssues = null;
+        $criticalIssues = null;
+
+        if ($roleName === 'STAFF') {
+            $myTasks = Task::with('issue')->where('assigned_to', $user->id)->get();
+            $myTaskStats = [
+                'open' => $myTasks->where('status', 'Open')->count(),
+                'in_progress' => $myTasks->whereIn('status', ['In Progress', 'On Progress'])->count(),
+                'overdue' => $myTasks->filter(fn($t) => $t->calculated_status === 'Terlambat')->count(),
+                'completed' => $myTasks->filter(fn($t) => $t->calculated_status === 'Selesai')->count(),
+            ];
+        } elseif ($roleName === 'ASMAN') {
+            $escalatedIssues = Issue::whereIn('unit_id', $authorizedUnitIds)
+                ->where('current_level', 'ASMAN')
+                ->with(['reporter', 'escalations.fromUser'])
+                ->latest()
+                ->get();
+        } elseif ($roleName === 'MUP') {
+            $criticalIssues = Issue::where('current_level', 'MUP')
+                ->with(['reporter', 'owner', 'escalations.fromUser'])->latest()->get();
+        }
+
+        return \Inertia\Inertia::render('Dashboard/Index', [
+            'roleName' => $roleName,
+            'kpiData' => $kpiData,
+            'manajemenTugas' => $manajemenTugas,
+            'tasks' => $tasks,
+            'issuesUnderReview' => $issuesUnderReview,
+            'escalatedIssues' => $escalatedIssues,
+            'criticalIssues' => $criticalIssues,
+            'myTasks' => $myTasks,
+            'myTaskStats' => $myTaskStats,
+        ]);
     }
 }

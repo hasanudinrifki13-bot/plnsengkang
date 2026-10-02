@@ -9,11 +9,15 @@ use App\Models\Meeting;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class MeetingController extends Controller
 {
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $userRole = strtoupper(optional($user->role)->name ?? 'STAFF');
+
         $tab = $request->get('tab', 'jadwal');
         $query = Meeting::with('leader')->latest('meeting_date');
 
@@ -25,6 +29,33 @@ class MeetingController extends Controller
 
         if ($request->filled('type') && $request->type !== 'semua') {
             $query->where('type', 'like', '%' . $request->type . '%');
+        }
+
+        // Scoping visibilitas rapat berdasarkan role & hierarki
+        if ($userRole === 'STAFF') {
+            $authorizedUnitIds = $user->getAuthorizedUnitIds();
+            $query->where(function($q) use ($user, $authorizedUnitIds) {
+                $q->where('leader_id', $user->id)
+                  ->orWhereHas('leader', fn($lq) => $lq->whereIn('unit_id', $authorizedUnitIds))
+                  ->orWhere('type', 'like', '%Staf%');
+            });
+        } elseif ($userRole === 'TL') {
+            $authorizedUnitIds = $user->getAuthorizedUnitIds();
+            $query->where(function($q) use ($user, $authorizedUnitIds) {
+                $q->where('leader_id', $user->id)
+                  ->orWhereHas('leader', fn($lq) => $lq->whereIn('unit_id', $authorizedUnitIds))
+                  ->orWhere('type', 'like', '%TL%')
+                  ->orWhere('type', 'like', '%Staf%');
+            });
+        } elseif ($userRole === 'ASMAN') {
+            $authorizedUnitIds = $user->getAuthorizedUnitIds();
+            $query->where(function($q) use ($user, $authorizedUnitIds) {
+                $q->where('leader_id', $user->id)
+                  ->orWhereHas('leader', fn($lq) => $lq->whereIn('unit_id', $authorizedUnitIds))
+                  ->orWhere('type', 'like', '%Asman%')
+                  ->orWhere('type', 'like', '%Manajemen%')
+                  ->orWhere('type', 'like', '%RTM%');
+            });
         }
 
         $meetings = $query->get();
@@ -71,10 +102,48 @@ class MeetingController extends Controller
             $meetings = Meeting::with('leader')->where('status', '!=', 'Selesai')->latest('meeting_date')->get();
         }
 
-        $leaders = User::where('is_active', true)->orderBy('name')->get();
-        $availableIssues = Issue::whereNotIn('status', ['Resolved', 'Closed'])->latest()->get();
+        $subordinateIds = $user->getSubordinateUserIds();
+        if (in_array($userRole, ['MUP', 'ADMIN'])) {
+            $leaders = User::where('is_active', true)->orderBy('name')->get();
+        } else {
+            $leaders = User::whereIn('id', array_merge([$user->id], $subordinateIds))->where('is_active', true)->orderBy('name')->get();
+            if ($leaders->isEmpty()) {
+                $leaders = User::where('id', $user->id)->get();
+            }
+        }
 
-        return view('rapat.index', compact('meetings', 'leaders', 'availableIssues', 'tab'));
+        $authorizedUnitIds = $user->getAuthorizedUnitIds();
+        $issueQuery = Issue::whereNotIn('status', ['Resolved', 'Closed'])->latest();
+        if ($userRole === 'STAFF') {
+            $issueQuery->where('reported_by', $user->id);
+        } elseif ($userRole === 'TL') {
+            // TL: isu milik staf seksinya (level TL)
+            $issueQuery->whereIn('unit_id', $authorizedUnitIds)->where('current_level', 'TL');
+        } elseif ($userRole === 'ASMAN') {
+            // ASMAN: hanya isu yang dibawa oleh TL ke level ASMAN
+            $subordinateIds = $user->getSubordinateUserIds();
+            $issueQuery->whereIn('unit_id', $authorizedUnitIds)
+                ->where(function ($q) use ($user, $subordinateIds) {
+                    $q->whereIn('current_level', ['ASMAN', 'MUP'])
+                      ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'ASMAN'))
+                      ->orWhere('reported_by', $user->id);
+                });
+        } elseif ($userRole === 'MUP') {
+            // MUP: hanya isu yang dibawa oleh Asman ke level MUP
+            $issueQuery->where(function ($q) use ($user) {
+                $q->where('current_level', 'MUP')
+                  ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'MUP'))
+                  ->orWhere('reported_by', $user->id);
+            });
+        }
+        $availableIssues = $issueQuery->get();
+
+        return Inertia::render('Meetings/Index', [
+            'meetings' => $meetings,
+            'leaders' => $leaders,
+            'availableIssues' => $availableIssues,
+            'tab' => $tab,
+        ]);
     }
 
     public function show($id)
@@ -97,7 +166,12 @@ class MeetingController extends Controller
         $tasks = Task::with('assignee')->take(6)->get();
         $users = User::where('is_active', true)->take(12)->get();
 
-        return view('rapat.show', compact('meeting', 'issues', 'tasks', 'users'));
+        return Inertia::render('Meetings/Show', [
+            'meeting' => $meeting,
+            'issues' => $issues,
+            'tasks' => $tasks,
+            'users' => $users,
+        ]);
     }
 
     public function workspace($id)
@@ -138,6 +212,7 @@ class MeetingController extends Controller
         // =========================================================================
         // TAHAP 2: MEETING AGENDA QUERY (OTOMATISASI REVIEW N-1 & TASK OUTSTANDING)
         // Menarik seluruh pekerjaan yang belum selesai (backlog) dari minggu sebelumnya
+        // Terisolasi ketat sesuai lingkup pimpinan rapat (TL vs Asman vs MUP)
         // =========================================================================
         $today = now()->toDateString();
         $outstandingQuery = Task::with(['assignee', 'issue'])
@@ -151,11 +226,14 @@ class MeetingController extends Controller
             });
 
         $leader = $meeting->leader ?? auth()->user();
+        $leaderUnits = $leader ? $leader->getAuthorizedUnitIds() : [];
+
         if ($meetingLevel === 'TL') {
             // Untuk rapat TL: Pekerjaan staf di bawah seksinya atau yang ditugaskan ke TL
-            $outstandingQuery->where(function ($q) use ($leader) {
-                if ($leader && $leader->unit_id) {
-                    $q->whereHas('assignee', fn($sq) => $sq->where('unit_id', $leader->unit_id))
+            $outstandingQuery->where(function ($q) use ($leader, $leaderUnits) {
+                if (!empty($leaderUnits)) {
+                    $q->whereIn('unit_id', $leaderUnits)
+                      ->orWhereHas('assignee', fn($sq) => $sq->whereIn('unit_id', $leaderUnits))
                       ->orWhere('assigned_to', $leader->id)
                       ->orWhere('assigned_by', $leader->id);
                 } else {
@@ -164,9 +242,10 @@ class MeetingController extends Controller
             });
         } elseif ($meetingLevel === 'ASMAN') {
             // Untuk rapat ASMAN: Pekerjaan seluruh seksi di bawah bidang Asman
-            if ($leader && $leader->unit_id) {
-                $outstandingQuery->where(function ($q) use ($leader) {
-                    $q->whereHas('assignee', fn($sq) => $sq->where('unit_id', $leader->unit_id))
+            if (!empty($leaderUnits)) {
+                $outstandingQuery->where(function ($q) use ($leader, $leaderUnits) {
+                    $q->whereIn('unit_id', $leaderUnits)
+                      ->orWhereHas('assignee', fn($sq) => $sq->whereIn('unit_id', $leaderUnits))
                       ->orWhere('assigned_by', $leader->id);
                 });
             }
@@ -175,48 +254,97 @@ class MeetingController extends Controller
 
         $evalTasks = $outstandingQuery->orderBy('due_date', 'asc')->get();
         if ($evalTasks->isEmpty()) {
-            $evalTasks = Task::with('assignee')->latest()->take(10)->get();
+            $fallbackQuery = Task::with('assignee');
+            if (($meetingLevel === 'TL' || $meetingLevel === 'ASMAN') && !empty($leaderUnits)) {
+                $fallbackQuery->where(function($q) use ($leaderUnits, $leader) {
+                    $q->whereIn('unit_id', $leaderUnits)
+                      ->orWhereHas('assignee', fn($sq) => $sq->whereIn('unit_id', $leaderUnits))
+                      ->orWhere('assigned_to', $leader->id);
+                });
+            }
+            $evalTasks = $fallbackQuery->latest()->take(10)->get();
         }
 
-        // Isu yang diagendakan pada rapat ini atau fallback sesuai level
+        // Isu yang diagendakan pada rapat ini atau fallback sesuai level & otoritas unit
         if ($meeting->issues && $meeting->issues->isNotEmpty()) {
             $activeIssues = $meeting->issues;
         } else {
-            $activeIssues = Issue::with(['reporter', 'owner'])
+            $activeIssuesQuery = Issue::with(['reporter', 'owner'])
                 ->where('current_level', $meetingLevel)
-                ->whereNotIn('status', ['Resolved', 'Closed'])
-                ->latest()
-                ->get();
+                ->whereNotIn('status', ['Resolved', 'Closed']);
+
+            if (($meetingLevel === 'TL' || $meetingLevel === 'ASMAN') && !empty($leaderUnits)) {
+                $activeIssuesQuery->whereIn('unit_id', $leaderUnits);
+            }
+
+            $activeIssues = $activeIssuesQuery->latest()->get();
         }
 
-        // Semua isu aktif yang bisa ditambahkan ke agenda
-        $allOpenIssues = Issue::whereNotIn('status', ['Resolved', 'Closed'])->latest()->get();
+        // Semua isu aktif yang bisa ditambahkan ke agenda rapat sesuai alur bertingkat
+        $allOpenIssuesQuery = Issue::whereNotIn('status', ['Resolved', 'Closed']);
+        if ($meetingLevel === 'TL') {
+            // Rapat TL: hanya isu staf di unit seksinya pada level TL
+            if (!empty($leaderUnits)) {
+                $allOpenIssuesQuery->whereIn('unit_id', $leaderUnits)->where('current_level', 'TL');
+            }
+        } elseif ($meetingLevel === 'ASMAN') {
+            // Rapat Asman: hanya isu yang dibawa oleh TL ke level ASMAN (atau dieskalasikan)
+            if (!empty($leaderUnits)) {
+                $allOpenIssuesQuery->whereIn('unit_id', $leaderUnits)
+                    ->where(function ($q) {
+                        $q->whereIn('current_level', ['ASMAN', 'MUP'])
+                          ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'ASMAN'));
+                    });
+            }
+        } elseif ($meetingLevel === 'MUP') {
+            // Rapat MUP: hanya isu yang dibawa oleh Asman ke level MUP
+            $allOpenIssuesQuery->where(function ($q) {
+                $q->where('current_level', 'MUP')
+                  ->orWhereHas('escalations', fn($eq) => $eq->where('to_level', 'MUP'));
+            });
+        }
+        $allOpenIssues = $allOpenIssuesQuery->latest()->get();
 
         // Agenda 3: Perencanaan Pekerjaan Minggu N
-        $plannedTasks = Task::with('assignee')
-            ->latest()
-            ->take(12)
-            ->get();
+        $plannedQuery = Task::with('assignee');
+        if (($meetingLevel === 'TL' || $meetingLevel === 'ASMAN') && !empty($leaderUnits)) {
+            $plannedQuery->where(function($q) use ($leaderUnits, $leader) {
+                $q->whereIn('unit_id', $leaderUnits)
+                  ->orWhereHas('assignee', fn($sq) => $sq->whereIn('unit_id', $leaderUnits))
+                  ->orWhere('assigned_to', $leader->id);
+            });
+        }
+        $plannedTasks = $plannedQuery->latest()->take(12)->get();
 
         // Agenda 4: Rekap Keputusan & Tindak Lanjut
-        $decisions = Decision::with(['decisionMaker', 'issue', 'tasks.assignee'])
-            ->latest()
-            ->take(10)
-            ->get();
+        $decisionsQuery = Decision::with(['decisionMaker', 'issue', 'tasks.assignee']);
+        if (($meetingLevel === 'TL' || $meetingLevel === 'ASMAN') && !empty($leaderUnits)) {
+            $decisionsQuery->whereHas('issue', fn($iq) => $iq->whereIn('unit_id', $leaderUnits));
+        }
+        $decisions = $decisionsQuery->latest()->take(10)->get();
 
-        $users = User::where('is_active', true)->orderBy('name')->get();
+        // Opsi pengguna bawahan yang dapat ditugaskan task dalam rapat
+        $subordinateIds = $leader ? $leader->getSubordinateUserIds() : [];
+        if ($meetingLevel === 'MUP') {
+            $users = User::where('is_active', true)->orderBy('name')->get();
+        } else {
+            $users = User::whereIn('id', $subordinateIds)->where('is_active', true)->orderBy('name')->get();
+            if ($users->isEmpty() && $leader) {
+                $users = User::where('id', $leader->id)->get();
+            }
+        }
 
-        return view('rapat.workspace', compact(
-            'meeting',
-            'meetingLevel',
-            'informations',
-            'evalTasks',
-            'activeIssues',
-            'allOpenIssues',
-            'plannedTasks',
-            'decisions',
-            'users'
-        ));
+        return Inertia::render('Meetings/Workspace', [
+            'meeting' => $meeting,
+            'meetingLevel' => $meetingLevel,
+            'informations' => $informations,
+            'evalTasks' => $evalTasks,
+            'activeIssues' => $activeIssues,
+            'allOpenIssues' => $allOpenIssues,
+            'plannedTasks' => $plannedTasks,
+            'decisions' => $decisions,
+            'users' => $users,
+        ]);
     }
 
     public function attachIssue(Request $request, $id)
@@ -243,11 +371,14 @@ class MeetingController extends Controller
             'description' => 'nullable|string',
         ]);
 
+        $assignee = User::find($request->assigned_to);
+
         Task::create([
             'title' => $request->title,
             'description' => $request->description,
             'assigned_to' => $request->assigned_to,
             'assigned_by' => auth()->id(),
+            'unit_id' => $assignee?->unit_id ?? auth()->user()->unit_id,
             'start_date' => now()->toDateString(),
             'due_date' => $request->due_date,
             'progress_percent' => 0,
@@ -349,6 +480,6 @@ class MeetingController extends Controller
         $asman = User::whereHas('role', fn($q) => $q->where('name', 'ASMAN'))->first();
         $mup = User::whereHas('role', fn($q) => $q->where('name', 'MUP'))->first();
 
-        return view('rapat.cetak', compact('meeting', 'issues', 'tasks', 'decisions', 'users', 'level', 'asman', 'mup'));
+        return Inertia::render('Meetings/Cetak', compact('meeting', 'issues', 'tasks', 'decisions', 'users', 'level', 'asman', 'mup'));
     }
 }
